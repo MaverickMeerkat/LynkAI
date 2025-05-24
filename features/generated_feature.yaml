@@ -1,8 +1,8 @@
 # customer.yml
 features:
   - type: metric
-    name: total_purchase_price
-    asset: db_prod.tpch.lineitem
-    measure: abc
+    name: total_orders_count
+    asset: db_prod.core.orders # Assuming 'orders' is the asset representing the Order entity
+    measure: orders_count     # Assuming a measure named 'orders_count' exists on the 'orders' asset
     data_type: number
     filters: null
