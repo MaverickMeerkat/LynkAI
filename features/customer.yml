@@ -1,0 +1,8 @@
+# customer.yml
+features:
+  - type: metric
+    name: total_orders_count
+    asset: db_prod.core.orders
+    measure: orders_count
+    data_type: number
+    filters: null
