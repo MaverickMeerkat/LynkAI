@@ -1,0 +1,7 @@
+features:
+- type: metric
+  name: average_line_item_price
+  asset: tpch.public.lineitem
+  measure: average_line_item_price
+  data_type: number
+  filters: null
