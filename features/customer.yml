@@ -4,18 +4,18 @@ features:
 - type: metric
   name: total_orders
   asset: db_prod.tpch.orders
-  measure: orders_count # Assuming 'orders_count' is a defined measure on db_prod.tpch.orders
+  measure: orders_count
   data_type: number
   filters: null
 
 - type: metric
-  name: total_purchase_price
+  name: total_purchases_price
   asset: db_prod.tpch.lineitem
-  measure: sum_extended_price # Using 'sum_extended_price' as you specified
+  measure: sum_extended_price
   data_type: number
   filters: null
 
 - type: formula
   name: is_active_customer
   data_type: boolean
-  sql: IFF({total_purchase_price} > 100, true, false)
+  sql: IFF({total_purchases_price} > 100, true, false)
