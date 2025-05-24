@@ -1,8 +1,21 @@
 # customer.yml
 features:
-  - type: metric
-    name: total_orders
-    asset: tpch.orders
-    measure: orders_count # Assumes 'orders_count' is a defined measure on your 'tpch.orders' asset
-    data_type: number
-    filters: null
+
+- type: metric
+  name: total_orders
+  asset: db_prod.tpch.orders
+  measure: orders_count # Assuming 'orders_count' is a defined measure on db_prod.tpch.orders
+  data_type: number
+  filters: null
+
+- type: metric
+  name: total_purchase_price
+  asset: db_prod.tpch.lineitem
+  measure: sum_extended_price # Using 'sum_extended_price' as you specified
+  data_type: number
+  filters: null
+
+- type: formula
+  name: is_active_customer
+  data_type: boolean
+  sql: IFF({total_purchase_price} > 100, true, false)
