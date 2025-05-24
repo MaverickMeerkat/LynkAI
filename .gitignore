@@ -1,2 +1,5 @@
 keys.txt
 keys.txt.pub
+__pycache__/
+*.ipynb
+.env

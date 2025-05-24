@@ -5,8 +5,12 @@ from google import genai
 import os
 import re
 from git import Repo
+from prompts import LYNK_ASSISTANT_PROMPT
+from dotenv import load_dotenv
 
 repo_path = "/app/repo"
+
+load_dotenv()  # loads variables from .env into os.environ
 
 # Git integration
 def commit_and_push_yaml(repo_path, file_path, commit_message):
@@ -16,40 +20,21 @@ def commit_and_push_yaml(repo_path, file_path, commit_message):
     origin = repo.remote(name='origin')
     origin.push()
 
-# Global state (simple)
+# Global state
 last_yaml = {
     "yaml": None,
     "pending_commit": False
 }
 
-# def test_git():
-#     repo_path = "/app/repo"
-#     repo = Repo(repo_path)
-
-#     # Create a dummy file
-#     dummy_file_path = os.path.join(repo_path, "test_dummy_file.txt")
-#     with open(dummy_file_path, "w") as f:
-#         f.write("This is a test dummy file.\n")
-
-#     # Stage the file
-#     repo.git.add("test_dummy_file.txt")
-
-#     # Commit the file
-#     repo.index.commit("Add test dummy file via GitPython")
-
-#     # Push the commit to the remote
-#     origin = repo.remote(name='origin')
-#     origin.push()
-
-#     print("✅ Dummy file committed and pushed!")
-
+# Message history
+message_history = []
 
 app = FastAPI()
 
 # Allow frontend to talk to backend
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # change to frontend URL in prod
+    allow_origins=["*"],  
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -59,35 +44,6 @@ client = genai.Client(api_key=os.environ["GOOGLE_API_KEY"])
 
 class Message(BaseModel):
     text: str
-
-# @app.post("/chat")
-# async def chat(message: Message):
-#     # if message.text == "git":
-#     #     test_git()
-#     #     return {"response": "Dummy file committed and pushed!"}
-#     # Load static context from Context.txt
-#     with open("Context.txt", "r", encoding="utf-8") as f:
-#         context = f.read()
-
-#     # Build prompt with user input
-#     prompt = f"""You are a Lynk feature creation assistant. 
-#         Base your response on the documentation provided below.
-#         If information is missing, ask for clarification.
-
-#         Documentation:
-#         {context}
-
-#         User query: {message.text}
-#     """
-
-#     # Send to Gemini
-#     response = client.models.generate_content(
-#         model='gemini-2.5-flash-preview-05-20',
-#         contents=prompt
-#     )
-    
-#     return {"response": response.text}
-
 
 
 @app.post("/chat")
@@ -105,6 +61,8 @@ async def chat(message: Message):
             filename = filename_match.group(1)
         else:
             filename = "generated_feature.yml"  # fallback if no header
+        
+        print(filename)
 
         file_path = os.path.join(repo_path, "features", filename)
 
@@ -121,22 +79,15 @@ async def chat(message: Message):
         return {"response": "✅ Feature committed and pushed to GitHub!"}
 
     # Load context
-    with open("Context.txt", "r", encoding="utf-8") as f:
+    with open("Context.md", "r", encoding="utf-8") as f:
         context = f.read()
 
     # Build prompt
-    prompt = f"""You are a Lynk feature creation assistant.
-        Base your response on the documentation provided below.
-        Assume the database is using TPCH schema. So some of the entities are:
-        Order, Customer, Line Item. 
-        If you have enough information to generate the YAML, do so and **ask the user** if they want to commit it to Git.
-        If more details are needed, ask follow-up questions.
-
-        Documentation:
-        {context}
-
-        User query: {message.text}
-        """
+    prompt = LYNK_ASSISTANT_PROMPT.format(
+            context=context,
+            message=message,
+            conversation_history="\n".join([f"{msg['role']}: {msg['content']}" for msg in message_history])
+        )
 
     # Query Gemini
     response = client.models.generate_content(
@@ -155,5 +106,7 @@ async def chat(message: Message):
             "pending_commit": True
         }
         response_text += "\n\nWould you like me to commit this to Git? (yes/yeah/ok/git)"
+
+    message_history.append({"role": "user", "content": user_input})
 
     return {"response": response_text}
