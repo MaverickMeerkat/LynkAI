@@ -1,8 +1,20 @@
 # customer.yml
 features:
   - type: metric
-    name: total_orders_count
-    asset: db_prod.core.orders
-    measure: orders_count
+    name: total_orders
+    asset: db_prod.schema.orders
+    measure: orders_count # Assumes a measure named 'orders_count' is defined on the db_prod.schema.orders asset.
     data_type: number
     filters: null
+
+  - type: metric
+    name: total_purchases_price
+    asset: db_prod.schema.lineitem
+    measure: total_purchases_price # Assumes a measure named 'total_purchases_price' (e.g., summing l_extendedprice) is defined on the db_prod.schema.lineitem asset.
+    data_type: number
+    filters: null
+
+  - type: formula
+    name: is_active_customer
+    data_type: boolean
+    sql: "{total_purchases_price} > 100"
