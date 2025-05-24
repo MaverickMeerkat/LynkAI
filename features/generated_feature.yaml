@@ -1,0 +1,8 @@
+# customer.yml
+features:
+  - type: metric
+    name: total_purchase_price
+    asset: db_prod.tpch.lineitem
+    measure: abc
+    data_type: number
+    filters: null
