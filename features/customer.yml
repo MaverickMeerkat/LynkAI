@@ -1,8 +1,8 @@
 # customer.yml
 features:
   - type: metric
-    name: total_orders_count
-    asset: db_prod.core.orders
-    measure: orders_count
+    name: total_orders
+    asset: tpch.orders
+    measure: orders_count # Assumes 'orders_count' is a defined measure on your 'tpch.orders' asset
     data_type: number
     filters: null
