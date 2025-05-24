@@ -2,11 +2,28 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from google import genai
+from google.genai import types
 import os
 import re
 from git import Repo
 from prompts import LYNK_ASSISTANT_PROMPT
 from dotenv import load_dotenv
+
+commit_and_push_function = types.FunctionDeclaration(
+    name="commit_and_push_yaml",
+    description="Commits the generated YAML to the Git repository and pushes it to GitHub.",
+    parameters=types.Schema(
+        type=types.Type.OBJECT,
+        properties={
+            "filename": types.Schema(type=types.Type.STRING, description="The name of the YAML file to save."),
+            "content": types.Schema(type=types.Type.STRING, description="The YAML content to save."),
+        },
+        required=["filename", "content"]
+    )
+)
+
+tools = [types.Tool(function_declarations=[commit_and_push_function])]
+config = types.GenerateContentConfig(tools=tools)
 
 repo_path = "/app/repo"
 
@@ -50,34 +67,6 @@ class Message(BaseModel):
 async def chat(message: Message):
     global last_yaml
 
-    user_input = message.text.strip().lower()
-
-    # Check for commit trigger
-    if user_input in ["yes", "yeah", "yep", "ok", "git"] and last_yaml["pending_commit"]:
-        repo_path = "/app/repo"
-        # Extract filename from the YAML content (e.g., "# customer.yml")
-        filename_match = re.search(r"#\s*(\S+\.yml)", last_yaml["yaml"])
-        if filename_match:
-            filename = filename_match.group(1)
-        else:
-            filename = "generated_feature.yml"  # fallback if no header
-        
-        print(filename)
-
-        file_path = os.path.join(repo_path, "features", filename)
-
-        # Ensure the features directory exists
-        os.makedirs(os.path.dirname(file_path), exist_ok=True)
-
-        # Write YAML to file
-        with open(file_path, "w", encoding="utf-8") as f:
-            f.write(last_yaml["yaml"])
-
-        # Commit and push
-        commit_and_push_yaml(repo_path, file_path, "Add generated feature from AI agent")
-        last_yaml = {"yaml": None, "pending_commit": False}
-        return {"response": "✅ Feature committed and pushed to GitHub!"}
-
     # Load context
     with open("Context.md", "r", encoding="utf-8") as f:
         context = f.read()
@@ -92,21 +81,41 @@ async def chat(message: Message):
     # Query Gemini
     response = client.models.generate_content(
         model='gemini-2.5-flash-preview-05-20',
-        contents=prompt
+        contents=prompt,
+        config=config
     )
 
-    response_text = response.text
+    # response_text = response.text
+    candidate = response.candidates[0]
 
-    # Extract YAML block (if present)
-    yaml_match = re.search(r"```yaml\n([\s\S]*?)```", response_text)
-    if yaml_match:
-        yaml_code = yaml_match.group(1)
-        last_yaml = {
-            "yaml": yaml_code,
-            "pending_commit": True
-        }
-        response_text += "\n\nWould you like me to commit this to Git? (yes/yeah/ok/git)"
+    if candidate.content.parts[0].function_call:
+        function_call = candidate.content.parts[0].function_call
+        function_name = function_call.name
+        function_args = function_call.args
 
-    message_history.append({"role": "user", "content": user_input})
+        if function_name == "commit_and_push_yaml":
+            filename = function_args["filename"]
+            yaml_content = function_args["content"]
+
+            repo_path = "/app/repo"
+            file_path = os.path.join(repo_path, "features", filename)
+
+            os.makedirs(os.path.dirname(file_path), exist_ok=True)
+            with open(file_path, "w", encoding="utf-8") as f:
+                f.write(yaml_content)
+
+            commit_and_push_yaml(repo_path, file_path, "Add generated feature from AI agent")
+
+            response_text = f"✅ Feature `{filename}` committed and pushed to GitHub!"
+        else:
+            response_text = f"⚠️ Gemini suggested unknown function: {function_name}"
+    else:
+        # Fallback to normal text reply
+        response_text = "".join(
+            part.text for part in candidate.content.parts if hasattr(part, "text")
+        )
+
+    # Save conversation history
+    message_history.append({"role": "user", "content": message.text.strip().lower()})
 
     return {"response": response_text}

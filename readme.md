@@ -9,5 +9,3 @@ Instructions:
 7. The AI agent will commit the feature to Git and push it to GitHub
 
 In the branch `function-call` you will find the implementation of the git function call. It's still very buggy, so I made it in another branch.
-
-Other suggestions to improve (given enough time): switch frontend from HTML to streamlit or gradio.
